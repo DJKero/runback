@@ -4,6 +4,7 @@ mod deprecated;
 
 mod m20221004_222202_create_tables;
 mod m20221111_215309_remove_invitation_junction;
+mod mYYYYMMDD_HHMMSS_migration_name;
 
 pub struct Migrator;
 
