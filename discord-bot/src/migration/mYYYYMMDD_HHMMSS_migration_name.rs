@@ -105,7 +105,203 @@ impl MigrationTrait for Migration {
                     .to_owned(),
             )
             .await?;
-
+        
+        manager
+            .create_table(
+                Table::create()
+                    .table(DuelMode)
+                    .if_not_exists()
+                    .col(
+                        ColumnDef::new(duel_mode::Column::Id)
+                            .uuid()
+                            .primary_key()
+                            .not_null()
+                            .unique_key(),
+                    )
+                    .col(
+                        ColumnDef::new(duel_mode::Column::GameId)
+                            .uuid()
+                            .not_null(),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("FK_game_id")
+                            .from(DuelMode, duel_mode::Column::GameId)
+                            .to(Game, game::Column::Id)
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade)
+                    )
+                    .col(
+                        ColumnDef::new(duel_mode::Column::ModeName)
+                            .string_len(80)
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(duel_mode::Column::ModeRules)
+                            .string_len(80)
+                            .not_null(),
+                    )
+            )
+            .await?;
+        
+        manager
+            .create_table(
+                Table::create()
+                    .table(DuelRating)
+                    .if_not_exists()
+                    .col(
+                        ColumnDef::new(duel_rating::Column::Id)
+                            .uuid()
+                            .primary_key()
+                            .not_null()
+                            .unique_key(),
+                    )
+                    .col(
+                        ColumnDef::new(duel_rating::Column::UserId)
+                            .uuid()
+                            .not_null(),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("FK_user_id")
+                            .from(DuelRating, duel_rating::Column::UserId)
+                            .to(Users, users::Column::UserId)
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade)
+                    )
+                    .col(
+                        ColumnDef::new(duel_rating::Column::ModeId)
+                            .uuid()
+                            .not_null(),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("FK_duel_mode_id")
+                            .from(DuelRating, duel_rating::Column::ModeId)
+                            .to(DuelMode, duel_mode::Column::Id)
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade)
+                    )
+                    .col(
+                        ColumnDef::new(duel_rating::Column::CharactersId)
+                            .uuid()
+                            .not_null(),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("FK_characters_id")
+                            .from(DuelRating, duel_rating::Column::CharactersId)
+                            .to(Characters, characters::Column::Id)
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade)
+                    )
+                    .col(
+                        ColumnDef::new(duel_rating::Column::Rating)
+                            .json()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(duel_rating::Column::LastUpdate)
+                            .timestamp_with_time_zone()
+                            .not_null(),
+                    )
+                    .to_owned(),
+            )
+            .await?;
+        
+        manager
+            .create_table(
+                Table::create()
+                    .table(DuelMatch)
+                    .if_not_exists()
+                    .col(
+                        ColumnDef::new(duel_match::Column::Id)
+                            .uuid()
+                            .primary_key()
+                            .not_null()
+                            .unique_key(),
+                    )
+                    .col(
+                        ColumnDef::new(duel_match::Column::UserId)
+                            .uuid()
+                            .not_null(),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("FK_user_id")
+                            .from(DuelMatch, duel_match::Column::UserId)
+                            .to(Users, users::Column::UserId)
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade)
+                    )
+                    .col(
+                        ColumnDef::new(duel_match::Column::OpponentId)
+                            .uuid()
+                            .not_null(),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("FK_opponent_id")
+                            .from(DuelMatch, duel_match::Column::OpponentId)
+                            .to(Users, users::Column::UserId)
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade)
+                    )
+                    .col(
+                        ColumnDef::new(duel_match::Column::ModeId)
+                            .uuid()
+                            .not_null(),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("FK_duel_mode_id")
+                            .from(DuelMatch, duel_match::Column::ModeId)
+                            .to(DuelMode, duel_mode::Column::Id)
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade)
+                    )
+                    .col(
+                        ColumnDef::new(duel_match::Column::CharactersId)
+                            .uuid()
+                            .not_null(),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("FK_characters_id")
+                            .from(DuelMatch, duel_match::Column::CharactersId)
+                            .to(Characters, characters::Column::Id)
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade)
+                    )
+                    .col(
+                        ColumnDef::new(duel_match::Column::Wins)
+                            .integer()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(duel_match::Column::Loses)
+                            .integer()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(duel_match::Column::OldRating)
+                            .json()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(duel_match::Column::NewRating)
+                            .json()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(duel_match::Column::CreationTimestamp)
+                            .timestamp_with_time_zone()
+                            .not_null(),
+                    )
+                    .to_owned(),
+            )
+            .await?;
+        /*
         manager
             .create_table(
                 Table::create()
@@ -349,204 +545,8 @@ impl MigrationTrait for Migration {
                     )
                     .to_owned(),
             )
-            .await?;
+            .await?;*/
 
-        manager
-            .create_table(
-                Table::create()
-                    .table(DuelMode)
-                    .if_not_exists()
-                    .col(
-                        ColumnDef::new(duel_mode::Column::Id)
-                            .uuid()
-                            .primary_key()
-                            .not_null()
-                            .unique_key(),
-                    )
-                    .col(
-                        ColumnDef::new(duel_mode::Column::GameId)
-                            .uuid()
-                            .not_null(),
-                    )
-                    .foreign_key(
-                        ForeignKey::create()
-                            .name("FK_game_id")
-                            .from(DuelMode, duel_mode::Column::GameId)
-                            .to(Game, game::Column::Id)
-                            .on_delete(ForeignKeyAction::Cascade)
-                            .on_update(ForeignKeyAction::Cascade)
-                    )
-                    .col(
-                        ColumnDef::new(duel_mode::Column::ModeName)
-                            .string_len(80)
-                            .not_null(),
-                    )
-                    .col(
-                        ColumnDef::new(duel_mode::Column::ModeRules)
-                            .string_len(80)
-                            .not_null(),
-                    )
-            )
-            .await?;
-        
-        manager
-            .create_table(
-                Table::create()
-                    .table(DuelRating)
-                    .if_not_exists()
-                    .col(
-                        ColumnDef::new(duel_rating::Column::Id)
-                            .uuid()
-                            .primary_key()
-                            .not_null()
-                            .unique_key(),
-                    )
-                    .col(
-                        ColumnDef::new(duel_rating::Column::UserId)
-                            .uuid()
-                            .not_null(),
-                    )
-                    .foreign_key(
-                        ForeignKey::create()
-                            .name("FK_user_id")
-                            .from(DuelRating, duel_rating::Column::UserId)
-                            .to(Users, users::Column::UserId)
-                            .on_delete(ForeignKeyAction::Cascade)
-                            .on_update(ForeignKeyAction::Cascade)
-                    )
-                    .col(
-                        ColumnDef::new(duel_rating::Column::ModeId)
-                            .uuid()
-                            .not_null(),
-                    )
-                    .foreign_key(
-                        ForeignKey::create()
-                            .name("FK_duel_mode_id")
-                            .from(DuelRating, duel_rating::Column::ModeId)
-                            .to(DuelMode, duel_mode::Column::Id)
-                            .on_delete(ForeignKeyAction::Cascade)
-                            .on_update(ForeignKeyAction::Cascade)
-                    )
-                    .col(
-                        ColumnDef::new(duel_rating::Column::CharactersId)
-                            .uuid()
-                            .not_null(),
-                    )
-                    .foreign_key(
-                        ForeignKey::create()
-                            .name("FK_characters_id")
-                            .from(DuelRating, duel_rating::Column::CharactersId)
-                            .to(Characters, characters::Column::Id)
-                            .on_delete(ForeignKeyAction::Cascade)
-                            .on_update(ForeignKeyAction::Cascade)
-                    )
-                    .col(
-                        ColumnDef::new(duel_rating::Column::Rating)
-                            .json()
-                            .not_null(),
-                    )
-                    .col(
-                        ColumnDef::new(duel_rating::Column::LastUpdate)
-                            .timestamp_with_time_zone()
-                            .not_null(),
-                    )
-                    .to_owned(),
-            )
-            .await?;
-        
-        manager
-            .create_table(
-                Table::create()
-                    .table(DuelMatch)
-                    .if_not_exists()
-                    .col(
-                        ColumnDef::new(duel_match::Column::Id)
-                            .uuid()
-                            .primary_key()
-                            .not_null()
-                            .unique_key(),
-                    )
-                    .col(
-                        ColumnDef::new(duel_match::Column::UserId)
-                            .uuid()
-                            .not_null(),
-                    )
-                    .foreign_key(
-                        ForeignKey::create()
-                            .name("FK_user_id")
-                            .from(DuelMatch, duel_match::Column::UserId)
-                            .to(Users, users::Column::UserId)
-                            .on_delete(ForeignKeyAction::Cascade)
-                            .on_update(ForeignKeyAction::Cascade)
-                    )
-                    .col(
-                        ColumnDef::new(duel_match::Column::OpponentId)
-                            .uuid()
-                            .not_null(),
-                    )
-                    .foreign_key(
-                        ForeignKey::create()
-                            .name("FK_opponent_id")
-                            .from(DuelMatch, duel_match::Column::OpponentId)
-                            .to(Users, users::Column::UserId)
-                            .on_delete(ForeignKeyAction::Cascade)
-                            .on_update(ForeignKeyAction::Cascade)
-                    )
-                    .col(
-                        ColumnDef::new(duel_match::Column::ModeId)
-                            .uuid()
-                            .not_null(),
-                    )
-                    .foreign_key(
-                        ForeignKey::create()
-                            .name("FK_duel_mode_id")
-                            .from(DuelMatch, duel_match::Column::ModeId)
-                            .to(DuelMode, duel_mode::Column::Id)
-                            .on_delete(ForeignKeyAction::Cascade)
-                            .on_update(ForeignKeyAction::Cascade)
-                    )
-                    .col(
-                        ColumnDef::new(duel_match::Column::CharactersId)
-                            .uuid()
-                            .not_null(),
-                    )
-                    .foreign_key(
-                        ForeignKey::create()
-                            .name("FK_characters_id")
-                            .from(DuelMatch, duel_match::Column::CharactersId)
-                            .to(Characters, characters::Column::Id)
-                            .on_delete(ForeignKeyAction::Cascade)
-                            .on_update(ForeignKeyAction::Cascade)
-                    )
-                    .col(
-                        ColumnDef::new(duel_match::Column::Wins)
-                            .integer()
-                            .not_null(),
-                    )
-                    .col(
-                        ColumnDef::new(duel_match::Column::Loses)
-                            .integer()
-                            .not_null(),
-                    )
-                    .col(
-                        ColumnDef::new(duel_match::Column::OldRating)
-                            .json()
-                            .not_null(),
-                    )
-                    .col(
-                        ColumnDef::new(duel_match::Column::NewRating)
-                            .json()
-                            .not_null(),
-                    )
-                    .col(
-                        ColumnDef::new(duel_match::Column::CreationTimestamp)
-                            .timestamp_with_time_zone()
-                            .not_null(),
-                    )
-                    .to_owned(),
-            )
-            .await?;
-        
         // let stmt = Statement::from_string(manager.get_database_backend(), "COMMIT".to_owned());
         // manager.get_connection().execute(stmt).await?;
 
@@ -556,7 +556,7 @@ impl MigrationTrait for Migration {
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         // Replace the sample below with your own migration scripts
 
-        
+
 
         Ok(())
     }
