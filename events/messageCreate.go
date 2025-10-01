@@ -1,21 +1,16 @@
-package handlers
+package events
 
 import (
 	"fmt"
+	"runback/bot"
 
 	"github.com/bwmarrin/discordgo"
 )
 
-// This function will be called (due to AddHandler above) every time one
-// of our shards connects.
-func onConnect(s *discordgo.Session, evt *discordgo.Connect) {
-	fmt.Printf("[INFO] Shard #%v connected.\n", s.ShardID)
-}
-
-// This function will be called (due to AddHandler above) every time a
+// This callback will be called every time a
 // new  message is created on any channel that the authenticated bot has
 // access to.
-func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
+func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	// Ignore all messages created by the bot itself.
 	// This isn't required in this specific example but it's a good
 	// practice.
@@ -36,7 +31,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		var err error
 		s.ChannelMessageSend(m.ChannelID, "[INFO] Restarting shard manager...")
 		fmt.Println("[INFO] Restarting shard manager...")
-		mgr, err = mgr.Restart()
+		bot.ShardsMgr, err = bot.ShardsMgr.Restart()
 		if err != nil {
 			fmt.Println("[ERROR] Error restarting manager,", err)
 		} else {

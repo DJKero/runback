@@ -5,69 +5,77 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
 	"os/signal"
-	"runback/handlers"
-	"runback/utils/fs"
 	"syscall"
 
+	"runback/bot"
+	"runback/events"
+	"runback/utils/fs"
+
+	"github.com/bwmarrin/discordgo"
 	"github.com/servusdei2018/shards/v2"
 )
 
 // Define a struct to hold the CLI arguments
 type CommandLineConfig struct {
-	ConfigFile       string
-	BotTokenFilePath string
-
-	StartProfiler bool
+	ConfigFile    string
+	TokenFilePath string
+	TestGuildId   string
 }
 
-var (
-	config = parseFlags()
-)
+var config = parseFlags()
 
 func main() {
-	go startBot()
-
-	if config.StartProfiler { // Launch the profiler if enabled
-		go startProfiler()
-	}
-
-	sc := make(chan os.Signal, 1)
-	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
-	log.Println("[MAIN] Waiting for exit signal.")
-	<-sc
-}
-
-func startBot() {
-	var mgr *shards.Manager
 	var err error
 
 	// Create a new shard manager using the provided bot token.
-	mgr, err = shards.New("Bot " + fs.ReadFileWhole(config.BotTokenFilePath))
+	bot.ShardsMgr, err = shards.New("Bot " + fs.ReadFileWhole(config.TokenFilePath))
 	if err != nil {
 		fmt.Println("[ERROR] Error creating manager,", err)
 		return
 	}
 
-	handlers.StartShards(mgr)
-}
+	// Register event handlers
+	bot.ShardsMgr.AddHandler(events.OnConnect)
+	bot.ShardsMgr.AddHandler(events.MessageCreate)
 
-func startProfiler() {
-	log.Println("[PROFILER] Starting pprof server at :6060")
-	log.Println("[PROFILER]", http.ListenAndServe("0.0.0.0:6060", nil))
+	// Register bot commands
+	// ---------------------
+
+	// In this example, we only care about receiving message events.
+	bot.ShardsMgr.RegisterIntent(discordgo.IntentsGuildMessages)
+
+	fmt.Println("[INFO] Starting shard manager...")
+
+	// Start all of our shards and begin listening.
+	err = bot.ShardsMgr.Start()
+	if err != nil {
+		fmt.Println("[ERROR] Error starting manager,", err)
+		return
+	}
+
+	// Wait here until CTRL-C or other term signal is received.
+	fmt.Println("[SUCCESS] Bot is now running.  Press CTRL-C to exit.")
+	sc := make(chan os.Signal, 1)
+	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
+	<-sc
+
+	// Cleanly close down the Manager.
+	fmt.Println("[INFO] Stopping shard manager...")
+	bot.ShardsMgr.Shutdown()
+	fmt.Println("[SUCCESS] Shard manager stopped. Bot is shut down.")
 }
 
 func parseFlags() CommandLineConfig {
 	var cfg CommandLineConfig
 
 	// Bind command-line flags to struct fields
-	flag.StringVar(&cfg.ConfigFile, "config-file", "", "Path to a JSON file to load config values from (overrides other flags if present: see examples)")
+	flag.StringVar(&cfg.ConfigFile, "config-file", "config.json", "Path to a JSON file to load config values from (overrides other flags if present: see examples). Defaults to `config.json`.")
 
-	flag.StringVar(&cfg.BotTokenFilePath, "token", "token.txt", "Path to txt file containing the token. Defaults to `token.txt`.")
+	flag.StringVar(&cfg.TokenFilePath, "token", "token.txt", "Path to txt file containing the token. Defaults to `token.txt`.")
 
-	flag.BoolVar(&cfg.StartProfiler, "profiler", false, "Flag that enables the profiler")
+	flag.StringVar(&cfg.TestGuildId, "guild-id", "", "GuildId of the test server.")
 
 	// Parse the flags
 	log.Println("[CLI] Parsing arguments.")
@@ -84,7 +92,10 @@ func parseFlags() CommandLineConfig {
 		}
 		cfg = jsonCfg
 	}
-	log.Println("[CLI] Bot Token File: " + cfg.BotTokenFilePath)
+
+	log.Println("[CLI] Bot config file: " + cfg.ConfigFile)
+	log.Println("[CLI] Bot token file: " + cfg.TokenFilePath)
+	log.Println("[CLI] Bot test server's guild id: " + cfg.TestGuildId)
 
 	return cfg
 }
