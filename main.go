@@ -9,8 +9,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"runback/bot"
-	"runback/events"
+	"runback/commands"
+	"runback/models"
 	"runback/utils/fs"
 
 	"github.com/bwmarrin/discordgo"
@@ -27,29 +27,55 @@ type CommandLineConfig struct {
 var config = parseFlags()
 
 func main() {
+	startBot()
+}
+
+func startBot() {
 	var err error
 
+	var sMgr *shards.Manager
+	var token = fs.ReadFileWhole(config.TokenFilePath)
+	var owners = make([]int, 0)
+
+	// TODO Un-Hardcode this
+	owners = append(owners, 161660724936966154)
+	//
+
 	// Create a new shard manager using the provided bot token.
-	bot.ShardsMgr, err = shards.New("Bot " + fs.ReadFileWhole(config.TokenFilePath))
+	sMgr, err = shards.New("Bot " + token)
 	if err != nil {
 		fmt.Println("[ERROR] Error creating manager,", err)
 		return
 	}
 
-	// Register event handlers
-	bot.ShardsMgr.AddHandler(events.OnConnect)
-	bot.ShardsMgr.AddHandler(events.MessageCreate)
+	models.Bot.ShardsMgr = sMgr
+	models.Bot.Token = token
+	models.Bot.Owners = owners
 
 	// Register bot commands
-	// ---------------------
+	log.Println("Adding commands...")
+	for _, v := range commands.AllCommands {
+		err := sMgr.ApplicationCommandCreate(config.TestGuildId, v)
+		if err != nil {
+			log.Panicf("Cannot create '%v' command: %v", v.Name, err)
+		}
+	}
+
+	// Register command handlers
+	log.Println("Adding command handlers...")
+	sMgr.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+		if h, ok := commands.AllCommandHandlers[i.ApplicationCommandData().Name]; ok {
+			h(s, i)
+		}
+	})
 
 	// In this example, we only care about receiving message events.
-	bot.ShardsMgr.RegisterIntent(discordgo.IntentsGuildMessages)
+	sMgr.RegisterIntent(discordgo.IntentGuildMessages | discordgo.IntentMessageContent)
 
 	fmt.Println("[INFO] Starting shard manager...")
 
 	// Start all of our shards and begin listening.
-	err = bot.ShardsMgr.Start()
+	err = sMgr.Start()
 	if err != nil {
 		fmt.Println("[ERROR] Error starting manager,", err)
 		return
@@ -63,7 +89,7 @@ func main() {
 
 	// Cleanly close down the Manager.
 	fmt.Println("[INFO] Stopping shard manager...")
-	bot.ShardsMgr.Shutdown()
+	sMgr.Shutdown()
 	fmt.Println("[SUCCESS] Shard manager stopped. Bot is shut down.")
 }
 
