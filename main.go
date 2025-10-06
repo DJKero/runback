@@ -19,7 +19,7 @@ import (
 type CommandLineConfig struct {
 	ConfigFile     string
 	TokenFilePath  string
-	TestGuildId    string
+	GuildId        string
 	RemoveCommands bool
 }
 
@@ -65,7 +65,7 @@ func main() {
 
 	log.Println("[INFO] Adding commands...")
 	for _, v := range commands.AllCommands {
-		errs := s.ApplicationCommandCreate(config.TestGuildId, v)
+		errs := s.ApplicationCommandCreate(config.GuildId, v)
 		for _, err := range errs {
 			if err != nil {
 				log.Panicf("Cannot create '%v' command: %v", v.Name, err)
@@ -73,7 +73,6 @@ func main() {
 		}
 	}
 
-	// Wait here until CTRL-C or other term signal is received.
 	fmt.Println("[SUCCESS] Bot is now running.  Press CTRL-C to exit.")
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
@@ -81,23 +80,14 @@ func main() {
 
 	if config.RemoveCommands {
 		log.Println("[INFO] Removing commands...")
-		// // We need to fetch the commands, since deleting requires the command ID.
-		// // We are doing this from the returned commands on line 375, because using
-		// // this will delete all the commands, which might not be desirable, so we
-		// // are deleting only the commands that we added.
-		// registeredCommands, err := s.ApplicationCommands(s.State.User.ID, *GuildID)
-		// if err != nil {
-		// 	log.Fatalf("Could not fetch registered commands: %v", err)
-		// }
-
-		registeredCommands, err := s.Gateway.ApplicationCommands(s.Gateway.State.Application.ID, config.TestGuildId)
+		registeredCommands, err := s.Gateway.ApplicationCommands(s.Gateway.State.Application.ID, config.GuildId)
 		if err != nil {
 			log.Fatalf("Could not fetch registered commands: %v", err)
 		}
 		for _, v := range commands.AllCommands {
 			for _, rc := range registeredCommands {
 				if rc.Name == v.Name {
-					errs := s.ApplicationCommandDelete(config.TestGuildId, rc)
+					errs := s.ApplicationCommandDelete(config.GuildId, rc)
 					for _, err := range errs {
 						if err != nil {
 							log.Panicf("Cannot delete '%v' command: %v", rc.Name, err)
@@ -108,10 +98,15 @@ func main() {
 		}
 	}
 
-	// Cleanly close down the Manager.
 	fmt.Println("[INFO] Stopping shard manager...")
-	s.Shutdown()
-	fmt.Println("[SUCCESS] Shard manager stopped. Bot is shut down.")
+	err = s.Shutdown()
+	if err != nil {
+		log.Fatalf("[ERROR] Failed to stop shard manager cleanly: %v", err)
+		fmt.Println("[ERROR] Bot is not shut down properly.")
+	} else {
+		log.Println("[SUCCESS] Shard manager stopped cleanly.")
+		fmt.Println("[SUCCESS] Bot is shut down properly.")
+	}
 }
 
 func parseFlags() CommandLineConfig {
@@ -122,7 +117,7 @@ func parseFlags() CommandLineConfig {
 
 	flag.StringVar(&cfg.TokenFilePath, "token", "token.txt", "Path to txt file containing the token. Defaults to `token.txt`.")
 
-	flag.StringVar(&cfg.TestGuildId, "guild-id", "", "GuildId of the test server.")
+	flag.StringVar(&cfg.GuildId, "guild-id", "", "GuildId of the test server.")
 
 	flag.BoolVar(&cfg.RemoveCommands, "remove-commands", true, "Whether to remove all commands added by the bot on shutdown. Defaults to true.")
 
@@ -144,16 +139,15 @@ func parseFlags() CommandLineConfig {
 
 	log.Println("[CLI] Bot config file: " + cfg.ConfigFile)
 	log.Println("[CLI] Bot token file: " + cfg.TokenFilePath)
-	log.Println("[CLI] Bot test server's guild id: " + cfg.TestGuildId)
-
-	var boolStr string
-	if cfg.RemoveCommands {
-		boolStr = "true"
-	} else {
-		boolStr = "false"
-	}
-
-	log.Println("[CLI] Bot test server's guild id: " + boolStr)
+	log.Println("[CLI] Bot test server's guild id: " + cfg.GuildId)
+	log.Println("[CLI] Bot test server's guild id: " + boolToString(cfg.RemoveCommands))
 
 	return cfg
+}
+
+func boolToString(b bool) string {
+	if b {
+		return "true"
+	}
+	return "false"
 }
