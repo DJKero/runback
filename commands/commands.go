@@ -3,9 +3,9 @@ package commands
 import "github.com/bwmarrin/discordgo"
 
 var AllCommands = []*discordgo.ApplicationCommand{
-	&PingCommand,
+	&pingCommand,
 }
 
 var AllCommandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
-	PingCommand.Name: pingCommand,
+	pingCommand.Name: pingCommandHandler,
 }

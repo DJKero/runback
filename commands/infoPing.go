@@ -7,12 +7,13 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-var PingCommand = discordgo.ApplicationCommand{
-	Name:        "infoPing",
+var pingCommand = discordgo.ApplicationCommand{
+	Name:        "ping",
 	Description: "Shows the bots ping.",
+	Type:        discordgo.ChatApplicationCommand,
 }
 
-func pingCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+func pingCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	var latency time.Duration = s.HeartbeatLatency().Round(time.Millisecond)
 
 	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
