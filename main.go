@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"flag"
-	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -46,34 +45,37 @@ func init() {
 }
 
 func main() {
+	var err error
+	var errs []error
+
 	s.AddHandler(func(s *discordgo.Session, r *discordgo.Ready) {
 		log.Printf("[INFO] Logged in as: %v#%v", s.State.User.Username, s.State.User.Discriminator)
 	})
 
-	err := s.Gateway.Open()
+	log.Println("[INFO] Starting gateway session...")
+	err = s.Gateway.Open()
 	if err != nil {
-		log.Fatalf("[ERROR] Cannot open the session: %v", err)
+		log.Fatalln("[ERROR] Cannot open gateway session:", err)
 	}
-	defer s.Gateway.Close()
 
 	log.Println("[INFO] Starting shard manager...")
 	err = s.Start()
 	if err != nil {
-		fmt.Println("[ERROR] Error starting manager,", err)
+		log.Fatalln("[ERROR] Error starting manager,", err)
 		return
 	}
 
 	log.Println("[INFO] Adding commands...")
 	for _, v := range commands.AllCommands {
-		errs := s.ApplicationCommandCreate(config.GuildId, v)
+		errs = s.ApplicationCommandCreate(config.GuildId, v)
 		for _, err := range errs {
 			if err != nil {
-				log.Panicf("Cannot create '%v' command: %v", v.Name, err)
+				log.Printf("[ERROR] Cannot create '%v' command: %v", v.Name, err)
 			}
 		}
 	}
 
-	fmt.Println("[SUCCESS] Bot is now running.  Press CTRL-C to exit.")
+	log.Println("[SUCCESS] Bot is now running.  Press CTRL-C to exit.")
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	<-sc
@@ -82,7 +84,7 @@ func main() {
 		log.Println("[INFO] Removing commands...")
 		registeredCommands, err := s.Gateway.ApplicationCommands(s.Gateway.State.Application.ID, config.GuildId)
 		if err != nil {
-			log.Fatalf("Could not fetch registered commands: %v", err)
+			log.Fatalln("Could not fetch registered commands:", err)
 		}
 		for _, v := range commands.AllCommands {
 			for _, rc := range registeredCommands {
@@ -90,7 +92,7 @@ func main() {
 					errs := s.ApplicationCommandDelete(config.GuildId, rc)
 					for _, err := range errs {
 						if err != nil {
-							log.Panicf("Cannot delete '%v' command: %v", rc.Name, err)
+							log.Fatalf("Cannot delete '%v' command: %v", rc.Name, err)
 						}
 					}
 				}
@@ -98,14 +100,20 @@ func main() {
 		}
 	}
 
-	fmt.Println("[INFO] Stopping shard manager...")
+	log.Println("[INFO] Stopping gateway session...")
+	err = s.Gateway.Close()
+	if err != nil {
+		log.Fatalln("[ERROR] Failed to stop gateway session:", err)
+	}
+
+	log.Println("[INFO] Stopping shard manager...")
 	err = s.Shutdown()
 	if err != nil {
-		log.Fatalf("[ERROR] Failed to stop shard manager cleanly: %v", err)
-		fmt.Println("[ERROR] Bot is not shut down properly.")
+		log.Println("[ERROR] Failed to stop shard manager:", err)
+		log.Fatalln("[ERROR] Bot is not shut down properly.")
 	} else {
-		log.Println("[SUCCESS] Shard manager stopped cleanly.")
-		fmt.Println("[SUCCESS] Bot is shut down properly.")
+		log.Println("[SUCCESS] Shard manager stopped.")
+		log.Println("[SUCCESS] Bot is shut down properly.")
 	}
 }
 
