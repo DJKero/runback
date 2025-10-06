@@ -3,13 +3,16 @@ package main
 import (
 	"encoding/json"
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
 	"runback/commands"
 	"runback/utils/fs"
+	"syscall"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/servusdei2018/shards/v2"
 )
 
 // Define a struct to hold the CLI arguments
@@ -22,13 +25,13 @@ type CommandLineConfig struct {
 
 var config = parseFlags()
 
-var s *discordgo.Session
+var s *shards.Manager
 
 func init() { flag.Parse() }
 
 func init() {
 	var err error
-	s, err = discordgo.New("Bot " + fs.ReadFileWhole(config.TokenFilePath))
+	s, err = shards.New("Bot " + fs.ReadFileWhole(config.TokenFilePath))
 	if err != nil {
 		log.Fatalf("Invalid bot parameters: %v", err)
 	}
@@ -44,32 +47,40 @@ func init() {
 
 func main() {
 	s.AddHandler(func(s *discordgo.Session, r *discordgo.Ready) {
-		log.Printf("Logged in as: %v#%v", s.State.User.Username, s.State.User.Discriminator)
+		log.Printf("[INFO] Logged in as: %v#%v", s.State.User.Username, s.State.User.Discriminator)
 	})
-	err := s.Open()
+
+	err := s.Gateway.Open()
 	if err != nil {
-		log.Fatalf("Cannot open the session: %v", err)
+		log.Fatalf("[ERROR] Cannot open the session: %v", err)
+	}
+	defer s.Gateway.Close()
+
+	log.Println("[INFO] Starting shard manager...")
+	err = s.Start()
+	if err != nil {
+		fmt.Println("[ERROR] Error starting manager,", err)
+		return
 	}
 
-	log.Println("Adding commands...")
-	registeredCommands := make([]*discordgo.ApplicationCommand, len(commands.AllCommands))
-	for i, v := range commands.AllCommands {
-		cmd, err := s.ApplicationCommandCreate(s.State.User.ID, config.TestGuildId, v)
-		if err != nil {
-			log.Panicf("Cannot create '%v' command: %v", v.Name, err)
+	log.Println("[INFO] Adding commands...")
+	for _, v := range commands.AllCommands {
+		errs := s.ApplicationCommandCreate(config.TestGuildId, v)
+		for _, err := range errs {
+			if err != nil {
+				log.Panicf("Cannot create '%v' command: %v", v.Name, err)
+			}
 		}
-		registeredCommands[i] = cmd
 	}
 
-	defer s.Close()
-
-	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, os.Interrupt)
-	log.Println("Press Ctrl+C to exit")
-	<-stop
+	// Wait here until CTRL-C or other term signal is received.
+	fmt.Println("[SUCCESS] Bot is now running.  Press CTRL-C to exit.")
+	sc := make(chan os.Signal, 1)
+	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
+	<-sc
 
 	if config.RemoveCommands {
-		log.Println("Removing commands...")
+		log.Println("[INFO] Removing commands...")
 		// // We need to fetch the commands, since deleting requires the command ID.
 		// // We are doing this from the returned commands on line 375, because using
 		// // this will delete all the commands, which might not be desirable, so we
@@ -79,15 +90,28 @@ func main() {
 		// 	log.Fatalf("Could not fetch registered commands: %v", err)
 		// }
 
-		for _, v := range registeredCommands {
-			err := s.ApplicationCommandDelete(s.State.User.ID, config.TestGuildId, v.ID)
-			if err != nil {
-				log.Panicf("Cannot delete '%v' command: %v", v.Name, err)
+		registeredCommands, err := s.Gateway.ApplicationCommands(s.Gateway.State.Application.ID, config.TestGuildId)
+		if err != nil {
+			log.Fatalf("Could not fetch registered commands: %v", err)
+		}
+		for _, v := range commands.AllCommands {
+			for _, rc := range registeredCommands {
+				if rc.Name == v.Name {
+					errs := s.ApplicationCommandDelete(config.TestGuildId, rc)
+					for _, err := range errs {
+						if err != nil {
+							log.Panicf("Cannot delete '%v' command: %v", rc.Name, err)
+						}
+					}
+				}
 			}
 		}
 	}
 
-	log.Println("Gracefully shutting down.")
+	// Cleanly close down the Manager.
+	fmt.Println("[INFO] Stopping shard manager...")
+	s.Shutdown()
+	fmt.Println("[SUCCESS] Shard manager stopped. Bot is shut down.")
 }
 
 func parseFlags() CommandLineConfig {
