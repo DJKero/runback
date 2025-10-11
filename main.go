@@ -6,7 +6,9 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"runback/bot"
 	"runback/commands"
+	"runback/db"
 	"runback/utils/fs"
 	"syscall"
 
@@ -45,6 +47,9 @@ func init() {
 }
 
 func main() {
+	db.New()
+	defer db.DBPool.Close()
+
 	var err error
 	var errs []error
 
@@ -73,6 +78,10 @@ func main() {
 				log.Printf("[ERROR] Cannot create '%v' command: %v", v.Name, err)
 			}
 		}
+	}
+
+	bot.Client = bot.Bot{
+		ShardsMgr: s,
 	}
 
 	log.Println("[SUCCESS] Bot is now running.  Press CTRL-C to exit.")
