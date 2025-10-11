@@ -1,14 +1,11 @@
-package models
+package bot
 
 import (
 	"github.com/servusdei2018/shards/v2"
 )
 
-type Client struct {
+type Bot struct {
 	ShardsMgr *shards.Manager
-
-	Token  string
-	Owners []int
 }
 
-var Bot Client
+var Client Bot
